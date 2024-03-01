@@ -12,18 +12,11 @@ def from_project_root(path: str) -> str:
     return os.path.join(root_dir, path)
 
 
-# Configure the logger
 logging.basicConfig(
-    level=logging.DEBUG,  # Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler()  # Output log messages to the console
-        # You can add more handlers like FileHandler to log to a file
+        logging.StreamHandler()
     ]
 )
-
-# Create a logger instance
-logger = logging.getLogger(__name__)
-
-
-
+logger = logging.getLogger('summary-eval')
+logger.setLevel(logging.DEBUG)  # Set the info level of the logger, not all loggers

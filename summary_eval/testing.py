@@ -3,13 +3,15 @@ This file establishes a common testing framework for evaluating
 models we create. This way, all our results should be comparable.
 """
 import statistics
-from typing import Dict, List
+from typing import List
 
 from sklearn.metrics import root_mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import  KFold
 import pandas as pd
+from tqdm.notebook import tqdm
 
-from settings import N_SPLITS
+from summary_eval.settings import N_FOLDS, N_RUNS
+from summary_eval.util import logger
 
 
 class CrossValidator:
@@ -33,21 +35,28 @@ class CrossValidator:
             "r2": {},
         }
 
-    def cross_validate(self) -> pd.DataFrame:
-        k_folds = KFold(n_splits=N_SPLITS, shuffle=True, random_state=42)
-        for train_i, test_i in k_folds.split(self.X_train):
-            fold_train_X, fold_test_X = self.X_train.iloc[train_i], self.X_train.iloc[test_i]
-            fold_train_y, fold_test_y = self.y_train.iloc[train_i], self.y_train.iloc[test_i]
-            self.model.fit(fold_train_X, fold_train_y)
-            y_pred = self.model.predict(fold_test_X)
+    def cross_validate(self, n_folds: int = N_FOLDS, n_runs: int = N_RUNS) -> pd.DataFrame:
+        logger.info(f"Using {n_runs}x{n_folds} cross validation")
+        # Generate a unique seed for each run, but for n runs,
+        # generate the same set of seeds for reproducibility
+        seeds = [i for i in range(n_runs)]
+        with tqdm(total=n_runs * n_folds) as pbar:
+            for run_i in range(n_runs):
+                k_folds = KFold(n_splits=n_folds, shuffle=True, random_state=seeds[run_i])
+                for train_i, test_i in k_folds.split(self.X_train):
+                    fold_train_X, fold_test_X = self.X_train.iloc[train_i], self.X_train.iloc[test_i]
+                    fold_train_y, fold_test_y = self.y_train.iloc[train_i], self.y_train.iloc[test_i]
+                    self.model.fit(fold_train_X, fold_train_y)
+                    y_pred = self.model.predict(fold_test_X)
 
-            # Calculate metrics
-            rmses = root_mean_squared_error(fold_test_y, y_pred, multioutput="raw_values")
-            self._update_metric(rmses, "rmse")
-            maes = mean_absolute_error(fold_test_y, y_pred, multioutput="raw_values")
-            self._update_metric(maes, "mae")
-            r2s = r2_score(fold_test_y, y_pred, multioutput="raw_values")
-            self._update_metric(r2s, "r2")
+                    # Calculate metrics
+                    rmses = root_mean_squared_error(fold_test_y, y_pred, multioutput="raw_values")
+                    self._update_metric(rmses, "rmse")
+                    maes = mean_absolute_error(fold_test_y, y_pred, multioutput="raw_values")
+                    self._update_metric(maes, "mae")
+                    r2s = r2_score(fold_test_y, y_pred, multioutput="raw_values")
+                    self._update_metric(r2s, "r2")
+                    pbar.update(1)
         return self._calculate_cv_results()
 
     def _update_metric(self, results: List[List[float]], name: str) -> None:
@@ -57,18 +66,18 @@ class CrossValidator:
 
     def _calculate_cv_results(self) -> pd.DataFrame:
         results = []
-        for metric, columns in self.metrics.items():
+        for metric, targets in self.metrics.items():
             means = []
             stdevs = []
-            for column, values in columns.items():
+            for target, values in targets.items():
                 mean = statistics.mean(values)
                 stdev = statistics.stdev(values)
                 means.append(mean)
                 stdevs.append(stdev)
-                results.append([metric, column, mean, stdev])
-            results.append([metric, "mean_columnwise", statistics.mean(means), statistics.mean(stdevs)])
+                results.append([metric, target, mean, stdev, len(values)])
+            results.append([metric, "mean_columnwise", statistics.mean(means), statistics.mean(stdevs), len(means)])
 
-        results_df = pd.DataFrame(results, columns=["metric", "target", "mean", "stdev"])
+        results_df = pd.DataFrame(results, columns=["metric", "target", "mean", "stdev", "n_trials"])
         metrics = results_df["metric"].unique().tolist()
         targets = results_df["target"].unique().tolist()
         results_df = results_df.transpose()

@@ -12,7 +12,9 @@ PROMPTS_TRAIN_PATH = os.path.join(ROOT_PATH, DATA_DIR, "prompts_train.csv")
 SUMMARIES_TRAIN_PATH = os.path.join(ROOT_PATH, DATA_DIR, "summaries_train.csv")
 
 # Cross validation splits
-N_SPLITS = 5
+# Use 10x10 cross validation
+N_RUNS = 10
+N_FOLDS = 10
 
 TRAIN_SIZE = 0.8
 VALIDATION_SIZE = 0.2
