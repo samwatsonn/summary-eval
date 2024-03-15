@@ -35,7 +35,7 @@ class CrossValidator:
             "r2": {},
         }
 
-    def cross_validate(self, n_folds: int = N_FOLDS, n_runs: int = N_RUNS) -> pd.DataFrame:
+    def cross_validate(self, n_folds: int, n_runs: int) -> pd.DataFrame:
         logger.info(f"Using {n_runs}x{n_folds} cross validation")
         # Generate a unique seed for each run, but for n runs,
         # generate the same set of seeds for reproducibility
@@ -85,6 +85,6 @@ class CrossValidator:
         return results_df.iloc[2:]
 
 
-def cross_validate(model, X_train, y_train):
+def cross_validate(model, X_train, y_train, n_folds: int = N_FOLDS, n_runs: int = N_RUNS):
     cv = CrossValidator(model, X_train, y_train)
-    return cv.cross_validate()
+    return cv.cross_validate(n_folds, n_runs)
